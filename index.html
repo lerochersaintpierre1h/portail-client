@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Espace Client — Rocher Saint Pierre 1H</title>
+
+  <!-- CDN Tailwind CSS & Alpine.js -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+  <!-- HTML2PDF pour téléchargement direct des PDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+  <!-- Firebase SDK (Compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+  <style>
+    [x-cloak] { display: none !important; }
+    
+    /* Cache proprement le bloc PDF hors de l'écran (à gauche) */
+    .pdf-hidden-wrapper {
+      position: absolute;
+      left: -9999px;
+      top: 0;
+    }
+    
+    /* Format A4 (210mm x 297mm). On bride à 290mm avec overflow hidden pour empêcher la page 2 vierge */
+    .pdf-a4-contrat {
+      width: 210mm;
+      height: 290mm;
+      box-sizing: border-box;
+      padding: 15mm;
+      background: white;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      page-break-after: always;
+      overflow: hidden;
+    }
+    .pdf-a4-contrat-last {
+      page-break-after: avoid !important;
+    }
+
+    .pdf-a4-recap {
+      width: 210mm;
+      height: 290mm; /* Verrouillé sur 1 seule page */
+      box-sizing: border-box;
+      padding: 15mm;
+      background: white;
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-800 font-sans min-h-screen flex flex-col justify-between overflow-x-hidden" x-data="clientApp()">
+
+  <!-- ÉCRAN DE CONNEXION -->
+  <div x-show="!isAuthenticated" class="min-h-screen flex items-center justify-center p-4 relative z-10">
+    <div class="bg-white p-8 rounded-2xl shadow-2xl max-w-sm w-full">
+      <div class="text-center mb-6">
+        <h1 class="text-xl font-bold text-slate-900">Rocher Saint Pierre 1H</h1>
+        <p class="text-xs text-slate-500 mt-1">Espace Voyageur</p>
+      </div>
+
+      <form @submit.prevent="login()" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Votre E-mail</label>
+          <input type="email" x-model="loginEmail" placeholder="exemple@mail.com" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none" required>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Mot de passe</label>
+          <div class="relative flex items-center">
+            <input :type="showPassword ? 'text' : 'password'" x-model="loginPassword" placeholder="••••••••" class="w-full border rounded-lg pl-3 pr-10 py-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none" required>
+            
+            <button type="button" @click="showPassword = !showPassword" class="absolute right-3 text-slate-400 hover:text-slate-600 focus:outline-none">
+              <svg x-show="!showPassword" class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"></path>
+                <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"></path>
+                <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"></path>
+                <line x1="2" y1="2" x2="22" y2="22"></line>
+              </svg>
+              <svg x-show="showPassword" x-cloak class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <p x-show="loginError" class="text-rose-500 text-xs font-bold text-center" x-text="loginError"></p>
+
+        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-lg shadow transition">
+          Accéder à mon espace
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- TABLEAU DE BORD CLIENT -->
+  <div x-show="isAuthenticated" x-cloak class="min-h-screen bg-slate-100 p-4 md:p-8 relative z-10">
+    <div class="max-w-3xl mx-auto space-y-6">
+
+      <!-- En-tête -->
+      <div class="bg-slate-900 text-white p-6 rounded-2xl shadow-lg flex justify-between items-center">
+        <div>
+          <h1 class="text-xl font-bold" x-text="'Bonjour ' + reservation?.prenom + ' ' + reservation?.nom"></h1>
+          <p class="text-xs text-emerald-400 mt-0.5" x-text="'Séjour du ' + formatDate(reservation?.dateDebut) + ' au ' + formatDate(reservation?.dateFin)"></p>
+        </div>
+        <button @click="isAuthenticated = false" class="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-2 rounded-lg text-slate-300 transition">
+          Déconnexion
+        </button>
+      </div>
+
+      <!-- 1. FEUILLE DE ROUTE -->
+      <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+        <h2 class="text-lg font-bold text-slate-900 mb-2">1. Consignes & Arrivée / Arrival Info</h2>
+        <p class="text-sm text-slate-600 mb-4">
+          Retrouvez toutes les informations pratiques, digicodes et consignes d'accès au logement dans la feuille de route.
+        </p>
+
+        <div class="flex flex-wrap gap-3">
+          <a href="Le Rocher Saint-Pierre 1h Feuille de Route.pdf" download="Le Rocher Saint-Pierre 1h Feuille de Route.pdf" class="inline-flex items-center justify-center bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-3 rounded-xl shadow transition text-sm">
+            📥 Télécharger la Feuille de route (FR)
+          </a>
+          <a href="Le Rocher Saint-Pierre 1h Road Map.pdf" download="Le Rocher Saint-Pierre 1h Road Map.pdf" class="inline-flex items-center justify-center bg-sky-600 hover:bg-sky-500 text-white font-bold px-5 py-3 rounded-xl shadow transition text-sm">
+            📥 Download Road Map (EN)
+          </a>
+        </div>
+      </div>
+
+      <!-- 2. LIVRET D'ACCUEIL -->
+      <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+        <h2 class="text-lg font-bold text-slate-900 mb-2">2. Livret d'Accueil</h2>
+        <p class="text-sm text-slate-600 mb-4">
+          Consultez le livret d'accueil pour découvrir tous les équipements de l'appartement, le Wi-Fi et les activités de la station.
+        </p>
+
+        <div class="flex flex-wrap gap-3">
+          <a href="Le Rocher Saint-Pierre 1h Livret Accueil.pdf" download="Le Rocher Saint-Pierre 1h Livret Accueil.pdf" class="inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-5 py-3 rounded-xl shadow transition text-sm">
+            📥 Télécharger le Livret d'Accueil (FR)
+          </a>
+        </div>
+      </div>
+
+      <!-- 3. RÉCAPITULATIF DE RÉSERVATION -->
+      <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+        <h2 class="text-lg font-bold text-slate-900 border-b pb-2" x-text="isBooking() ? '3. Récapitulatif de réservation' : '3. Récapitulatif de réservation & Paiement'"></h2>
+
+        <div class="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <span class="text-xs text-slate-400 uppercase font-bold block">Arrivée</span>
+            <span class="font-bold text-slate-800" x-text="formatDate(reservation?.dateDebut)"></span>
+          </div>
+          <div>
+            <span class="text-xs text-slate-400 uppercase font-bold block">Départ</span>
+            <span class="font-bold text-slate-800" x-text="formatDate(reservation?.dateFin)"></span>
+          </div>
+          <div>
+            <span class="text-xs text-slate-400 uppercase font-bold block">Voyageurs</span>
+            <span class="font-semibold text-slate-800" x-text="(reservation?.nbAdulte || 1) + ' Adulte(s), ' + (reservation?.nbEnfant || 0) + ' Enfant(s)'"></span>
+          </div>
+          <div>
+            <span class="text-xs text-slate-400 uppercase font-bold block">Kit Bébé</span>
+            <span class="font-semibold text-slate-800 uppercase" x-text="reservation?.kitBebe || 'Non'"></span>
+          </div>
+        </div>
+
+        <!-- Section financière : UNIQUEMENT POUR CLIENTS NON-BOOKING -->
+        <div x-show="!isBooking()" class="space-y-4 pt-2">
+          <div class="bg-slate-50 p-4 rounded-xl border space-y-2 text-sm mt-2">
+            <div class="flex justify-between">
+              <span class="text-slate-600">Total du séjour :</span>
+              <span class="font-bold text-slate-900" x-text="formatCurrency(calcTotalSejour(reservation))"></span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-600">Acompte réglé :</span>
+              <span class="font-bold text-emerald-600" x-text="formatCurrency(reservation?.acompte)"></span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-600">Solde réglé :</span>
+              <span class="font-bold text-emerald-600" x-text="formatCurrency(reservation?.soldePaye)"></span>
+            </div>
+            <div class="flex justify-between items-center pt-2 border-t font-extrabold text-base">
+              <span class="text-slate-800">
+                Reste à payer
+                <span class="text-xs font-normal text-slate-500 block">avant le <strong x-text="getDueDate(reservation?.dateDebut)"></strong></span>
+              </span>
+              <span :class="calcResteAPayer(reservation) <= 0 ? 'text-emerald-600' : 'text-rose-600'" x-text="formatCurrency(calcResteAPayer(reservation))"></span>
+            </div>
+          </div>
+
+          <!-- Téléchargement direct des documents générés -->
+          <div class="pt-2 flex flex-wrap gap-3">
+            <button @click="downloadContratPDF()" class="inline-flex items-center justify-center bg-slate-800 hover:bg-slate-700 text-white font-semibold px-4 py-2.5 rounded-xl text-xs transition shadow">
+              📥 Télécharger mon Contrat (PDF)
+            </button>
+            <button @click="downloadRecapPDF()" class="inline-flex items-center justify-center bg-slate-800 hover:bg-slate-700 text-white font-semibold px-4 py-2.5 rounded-xl text-xs transition shadow">
+              📥 Télécharger mon Récapitulatif (PDF)
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- TEMPLATES RENDU PDF HORS ÉCRAN (Invisible à l'utilisateur, lisible par html2pdf) -->
+  <div class="pdf-hidden-wrapper">
+    <template x-if="reservation && !isBooking()">
+      <div id="pdf-render-container">
+
+        <!-- 1. TEMPLATE CONTRAT COMPLET (5 PAGES STRICTES A4) -->
+        <div id="pdf-contrat-template" class="bg-white text-slate-900 font-sans text-xs">
+          
+          <!-- PAGE 1 / 5 -->
+          <div class="pdf-a4-contrat text-[11px] leading-relaxed">
+            <div>
+              <div class="bg-sky-700 text-white text-center py-2.5 rounded-xl mb-4 shadow-sm">
+                <h1 class="text-sm font-extrabold uppercase tracking-widest">OFFRE DE LOCATION SAISONNIÈRE</h1>
+                <h2 class="text-xs font-semibold mt-0.5">Le Rocher Saint Pierre - 1H</h2>
+              </div>
+              
+              <p class="text-right mb-3">Meudon, le <span x-text="new Date().toLocaleDateString('fr-FR')"></span></p>
+              <p class="mb-3">Mme Gwen-Anne Le Corre et M. Ronan Brémond, domiciliés au 15 Avenue Henri IV - 92190 Meudon, ci-après désigné « Le Loueur » ou « Le Bailleur » offre à la location aux Locataires suivants, le bien ci-après désigné, à :</p>
+              
+              <div class="ml-4 mb-3 space-y-0.5">
+                <p>1°) : M./Mme* : <span class="font-bold text-slate-900" x-text="reservation.nom + ' ' + (reservation.prenom || '')"></span></p>
+                <p>demeurant* : <span class="font-bold text-slate-900" x-text="(reservation.adresse || '') + ' ' + (reservation.codePostal || '') + ' ' + (reservation.ville || '') + ' ' + (reservation.pays || '')"></span></p>
+                <p>Accompagné de* : <span class="font-bold text-slate-900" x-text="reservation.nbAdulte"></span> Adulte(s) et <span class="font-bold text-slate-900" x-text="reservation.nbEnfant || 0"></span> Enfant(s)</p>
+                <p>Téléphone* : <span class="font-bold text-slate-900" x-text="reservation.telephone || 'N/C'"></span></p>
+                <p>Email* : <span class="font-bold text-slate-900" x-text="reservation.email || 'N/C'"></span></p>
+              </div>
+              
+              <p class="mb-3 italic text-[10px]">ci-après désigné « Le Locataire principal »<br>(*) Mentions obligatoires.<br>L'ensemble des Locataires sont tenus solidairement des obligations mentionnées dans les conditions générales et particulières.</p>
+              
+              <p class="font-bold mb-1">Le Rocher Saint Pierre 1H - Capacité de 6 personnes, 2 pièces - 40 m2 - Classement meublé de tourisme 3*</p>
+              <p class="mb-2">Cet appartement possède une cuisine ouverte, un séjour, 1 chambre, 1 salle de bains (avec douche/lavabo), 1 WC, et une terrasse de 3 m2.</p>
+              <p class="font-bold underline mb-1">Répartition de la surface habitable et couchages :</p>
+              <ul class="list-disc ml-6 mb-3">
+                <li>Séjour (canapé convertible 140x190) et Cuisine de 18 m2 ;</li>
+                <li>Chambre de 12 m2 (Lit double de 140x190 et lit superposé de 90x190).</li>
+              </ul>
+
+              <table class="w-full mb-2 border-collapse">
+                <tbody>
+                  <tr class="border-b"><td class="py-1 w-1/2">Arrivée le :</td><td class="py-1 font-bold" x-text="formatDate(reservation.dateDebut)"></td></tr>
+                  <tr class="border-b"><td class="py-1">Départ le :</td><td class="py-1 font-bold" x-text="formatDate(reservation.dateFin)"></td></tr>
+                  <tr class="border-b"><td class="py-1">Nombre de nuits :</td><td class="py-1 font-bold" x-text="calcNights(reservation.dateDebut, reservation.dateFin)"></td></tr>
+                  <tr class="border-b"><td class="py-1">Prix du séjour T.T.C</td><td class="py-1 font-bold text-emerald-700" x-text="formatCurrency(calcTotalSejour(reservation))"></td></tr>
+                  <tr><td class="py-1 italic text-[10px]" colspan="2">Dont :</td></tr>
+                  <tr><td class="py-0.5 pl-4 text-[10px]">- Taxe de séjour (<span x-text="formatCurrency(donnees.taxeSejour)"></span> / nuit / pers)</td><td class="py-0.5 font-bold text-[10px]" x-text="formatCurrency(calcTaxeSejour(reservation))"></td></tr>
+                  <tr><td class="py-0.5 pl-4 text-[10px]">- ménage fin de séjour (obligatoire)</td><td class="py-0.5 font-bold text-[10px]" x-text="formatCurrency(calcMenage(reservation))"></td></tr>
+                  <tr class="border-b"><td class="py-0.5 pl-4 text-[10px] pb-1">- option kit bébé</td><td class="py-0.5 font-bold text-[10px] uppercase pb-1" x-text="reservation.kitBebe || 'non'"></td></tr>
+                  <tr class="border-b bg-slate-50"><td class="py-2 font-bold pl-2">Acompte à verser lors de la réservation (<span x-text="donnees.pctAcompte"></span>%) :</td><td class="py-2 font-bold" x-text="formatCurrency(calcAcompte(reservation))"></td></tr>
+                  <tr class="border-b bg-slate-50"><td class="py-2 font-bold pl-2">Solde à payer T.T.C avant le <span x-text="getDueDate(reservation.dateDebut)"></span> :</td><td class="py-2 font-bold text-rose-700" x-text="formatCurrency(calcTotalSejour(reservation) - calcAcompte(reservation))"></td></tr>
+                </tbody>
+              </table>
+            </div>
+            
+            <div class="border-t border-slate-300 pt-2 text-center text-[9px] text-slate-500">
+              <p>Le rocher saint pierre 1H - avenue de la vallée d’or - 73450 Valloire</p>
+              <p>Tel. +33 (0)603241566 – Email : lerochersaintpierre1h@gmail.com</p>
+              <div class="flex justify-between mt-1 px-4 font-bold"><span>page 1/5</span><span>Paraphes</span></div>
+            </div>
+          </div>
+
+          <!-- PAGE 2 / 5 -->
+          <div class="pdf-a4-contrat text-[11px] leading-relaxed">
+            <div>
+              <div class="bg-sky-700 text-white text-center py-2.5 rounded-xl mb-5 shadow-sm">
+                <h1 class="text-sm font-extrabold uppercase tracking-widest">OFFRE DE LOCATION SAISONNIÈRE</h1>
+                <h2 class="text-xs font-semibold mt-0.5">Le Rocher Saint Pierre - 1H</h2>
+              </div>
+              
+              <p class="font-bold underline mb-2">Informations importantes :</p>
+              <ul class="list-disc ml-6 mb-5 text-[11px] space-y-1">
+                <li>L'arrivée se fait entre 17h00 et 20h00.</li>
+                <li>Le départ se fait entre 8h00 et 10h00.</li>
+                <li>Le prix indiqué dans la présente offre comprend : la fourniture du linge de lit (couettes, oreillers et alèzes uniquement), le parking privé, la connexion Internet Wifi, la Télévision TNT.</li>
+                <li>Le prix comprend les services optionnels comme le kit bébé, qui peuvent être souscrits par le bulletin "services Rocher Saint Pierre", transmis avec la présente offre.</li>
+                <li>La Taxe de séjour est incluse dans le prix.</li>
+                <li>Le Dépôt de Garantie, de 400,00 euros, devra être envoyé par chèque 30 jours avant la date de début de séjour aux Loueurs.</li>
+              </ul>
+              
+              <p class="mb-3 font-bold text-justify">Je certifie avoir pris connaissance des conditions générales de vente et prestations de services figurant ci-après (pages 3 à 5) et les accepte en totalité.</p>
+              <p class="mb-3 text-justify">Je verse un acompte de <span x-text="donnees.pctAcompte"></span>% du montant total du séjour par virement bancaire (voir RIB ci-dessous), chèque bancaire ou postal à l'ordre de : Mr Brémond et Mme Le Corre.<br>
+              Chèque(s) à envoyer à l'adresse suivante :<br>Mr Brémond et Mme Le Corre<br>15 av Henri IV<br>92190 Meudon.</p>
+              
+              <div class="border-2 border-slate-800 rounded-lg p-3 text-[10px] mb-5 max-w-lg mx-auto bg-slate-50 shadow-sm">
+                <p class="font-extrabold mb-1.5 text-center text-[11px] tracking-wide">RIB BREMOND / LE CORRE</p>
+                <table class="w-full text-center border-collapse">
+                  <tr class="bg-slate-200 border-b border-slate-300"><th class="py-1">Code Banque</th><th>Code Guichet</th><th>N°compte</th><th>Clé RIB</th></tr>
+                  <tr><td class="py-1 font-semibold">14445</td><td class="font-semibold">400</td><td class="font-semibold">4118048407</td><td class="font-semibold">60</td></tr>
+                </table>
+                <p class="mt-2 text-center"><strong>IBAN :</strong> FR76 1444 5004 0004 1180 4840 760 &nbsp;&nbsp;&nbsp; <strong>BIC :</strong> CEPAFRPP444</p>
+              </div>
+
+              <p class="mb-2">Je m'engage à verser le solde du séjour, au plus tard 30 jours avant la date d'arrivée.</p>
+              <p class="mb-3">En cas de réservation à moins de 30 jours avant la date d'arrivée, je m'engage à verser la totalité du séjour lors de la réservation.</p>
+              <p class="mb-6 text-justify">Je conserve un exemplaire de la présente offre et renvoie un original de la présente offre, datée et signée par Le ou les Locataires, accompagné des conditions générales de vente paraphées ainsi que le règlement de l'acompte à l'adresse suivante : Ronan Brémond - 15 Avenue Henri IV - 92190 Meudon.</p>
+              
+              <div class="flex justify-between mb-8 px-8">
+                <div><p>FAIT A : <strong>MEUDON</strong></p></div>
+                <div><p>LE : <strong x-text="new Date().toLocaleDateString('fr-FR')"></strong></p></div>
+              </div>
+              
+              <p class="font-bold text-center mb-2">SIGNATURE(S) précédée(s) de la mention Lu et Approuvé :</p>
+            </div>
+
+            <div class="border-t border-slate-300 pt-2 text-center text-[9px] text-slate-500">
+              <p>Le rocher saint pierre 1H - avenue de la vallée d’or - 73450 Valloire</p>
+              <p>Tel. +33 (0)603241566 – Email : lerochersaintpierre1h@gmail.com</p>
+              <div class="flex justify-between mt-1 px-4 font-bold"><span>page 2/5</span><span>Paraphes</span></div>
+            </div>
+          </div>
+
+          <!-- PAGE 3 / 5 -->
+          <div class="pdf-a4-contrat text-[10px] leading-normal text-justify">
+            <div class="space-y-1.5">
+              <div class="bg-sky-700 text-white text-center py-2.5 rounded-xl mb-3 shadow-sm">
+                <h1 class="text-sm font-extrabold uppercase tracking-widest">OFFRE DE LOCATION SAISONNIÈRE</h1>
+                <h2 class="text-xs font-semibold mt-0.5">Le Rocher Saint Pierre - 1H</h2>
+              </div>
+              
+              <h3 class="text-center font-bold text-[11px] mb-3 uppercase underline">CONDITIONS GÉNÉRALES DE VENTE ET PRESTATION DE SERVICE</h3>
+
+              <p class="font-bold underline text-slate-800">Loyer / Réservation :</p>
+              <p>La somme versée en même temps que la remise de l'offre de location par le Locataire constitue un acompte (correspondant à 30% du montant total du séjour hors prestations annexes). Le Locataire est définitivement engagé par la remise de l'offre et de l'acompte au Loueur. Dès lors que le Loueur confirme le contrat, dans les conditions mentionnées ci-après le solde du loyer est dû au plus tard 30 jours avant la date de début de location.</p>
+              <p>Dès réception du paiement de l'acompte, le Loueur, confirmera par courrier électronique la conclusion définitive du contrat de location, dans un délai de maximum 7 jours ouvrés à compter de l'encaissement de l'acompte.</p>
+              <p>A défaut de confirmation de la location par le Loueur dans le délai mentionné, notamment si les locaux choisis par le Locataire n'étaient plus disponibles pour la période souhaitée, la somme versée par le Locataire lui sera intégralement restituée dans un délai maximum de 10 jours ouvrés.</p>
+              <p>Le solde du loyer, et le cas échéant les services supplémentaires choisis, seront facturés par le Loueur avant la date de début de location. Ces sommes devront être réglées 30 jours avant la date de début de location sous peine de résiliation du contrat de location de la part du Loueur, aux torts du Locataire.</p>
+              <p>Les séjours sont d'une durée conforme au nombre de nuits indiqués page 1 du contrat de location.</p>
+
+              <p class="font-bold underline text-slate-800 mt-2">Annulation et modifications :</p>
+              <p>A compter de la réception de la confirmation, le Locataire consommateur dispose d'un délai de quatorze jours francs pour exercer son droit de rétractation sans avoir à justifier de motifs ni à payer de pénalités (Art. L121-21 du Code de la consommation). Ce délai commence à courir à compter de la conclusion du contrat, soit à la date de l'envoi de la confirmation adressée par le Loueur. Toute rétractation devra s'effectuer par l'envoi au Loueur d'une lettre recommandée avec accusé de réception, accompagnée du formulaire de rétractation adressé par le Loueur dans le courrier électronique de confirmation. Toutefois, elle ne pourra intervenir si le délai de rétractation expire après la date de début de séjour et que le Locataire a pris possession des lieux loués.</p>
+              <p>En cas d'annulation de la location par le Locataire, hors exercice du droit de rétractation, par l'envoi au Loueur d'une lettre recommandée avec accusé de réception, ce dernier restera redevable de la totalité du prix de la location, sauf cas de force majeure. Le Locataire devra mentionner dans son courrier le nom, l'adresse et le numéro de contrat d'assurance annulation le cas échéant souscrit. En cas de relocation par le Loueur, la somme versée pour la relocation viendra en déduction des sommes dues par le Locataire, à l'exception d'une somme de 150 euros à titre de frais de relocation.</p>
+              <p>Le Locataire est invité à souscrire une assurance spécifique couvrant le prix de la location restant à charge et les frais en cas d'annulation. Le Locataire fera son affaire d'informer son assurance dans les délais requis par son contrat pour obtenir la prise en charge des frais éventuels d'annulation. Le Loueur ne saurait être tenu responsable en cas d'exclusion de garantie par l'assurance. Toute somme versée par l'assureur au Locataire au titre du remboursement des frais d'annulation sera acquise au Loueur, qui sera en droit d'agir en réclamation à l'encontre du Locataire à ce titre.</p>
+              <p>En cas d'annulation de la location par le Loueur, par l'envoi au Locataire d'une lettre recommandée avec accusé de réception, sauf en cas de force majeure, ce dernier devra rembourser l'acompte versé par le Locataire, dans un délai de 30 jours suivant la décision d'annulation.</p>
+              <p>Tout séjour interrompu ou abrégé, quelle qu'en soit la raison, ne pourra donner lieu à un remboursement.</p>
+
+              <p class="font-bold underline text-slate-800 mt-2">Arrivée et départ :</p>
+              <p>Le Locataire pourra prendre possession des clés le jour d'arrivée mentionné dans l'offre de location saisonnière, entre 17h00 et 20h00. En cas d'arrivée tardive, il devra prévenir le Loueur afin qu'il lui explique la marche à suivre. Le Locataire devra impérativement restituer les clés, le samedi suivant entre 8h00 et 10h00. En cas de remise des clés après 10h00, le Loueur est en droit de facturer au Locataire une journée de location supplémentaire, sur la base du prix journalier applicable à la location, majoré de 25%. L'appartement devra être rendu en parfait état de propreté.</p>
+              
+              <p class="font-bold underline text-slate-800 mt-2">Charges locatives et taxes de séjour :</p>
+              <p>Les tarifs s'entendent toutes charges incluses (eau, électricité, chauffage). Une taxe de séjour est en vigueur dans la station et elle est incluse dans le prix final. Toutefois, en cas de variation du montant de cette taxe entre la date d'émission de l'offre et la date de séjour, le Loueur pourra réclamer le complément au Locataire.</p>
+            </div>
+
+            <div class="border-t border-slate-300 pt-2 text-center text-[9px] text-slate-500">
+              <p>Le rocher saint pierre 1H - avenue de la vallée d’or - 73450 Valloire</p>
+              <p>Tel. +33 (0)603241566 – Email : lerochersaintpierre1h@gmail.com</p>
+              <div class="flex justify-between mt-1 px-4 font-bold"><span>page 3/5</span><span>Paraphes</span></div>
+            </div>
+          </div>
+
+          <!-- PAGE 4 / 5 -->
+          <div class="pdf-a4-contrat text-[10px] leading-normal text-justify">
+            <div class="space-y-1.5">
+              <div class="bg-sky-700 text-white text-center py-2.5 rounded-xl mb-3 shadow-sm">
+                <h1 class="text-sm font-extrabold uppercase tracking-widest">OFFRE DE LOCATION SAISONNIÈRE</h1>
+                <h2 class="text-xs font-semibold mt-0.5">Le Rocher Saint Pierre - 1H</h2>
+              </div>
+
+              <p class="font-bold underline text-slate-800">Les prix :</p>
+              <p>Le prix de la location figurant sur l'offre de location a été convenu entre les parties et n'est valable qu'en cas d'acceptation avant la date indiquée sur l'offre.</p>
+              <p>Le prix comprend : la télévision, le parking privé, l'internet Wifi.</p>
+              <p>Le prix ne comprend pas : les prestations ou services supplémentaires (kit bébé), le dépôt de garantie envoyé par chèque au moins 30 jours avant la date de début de location.</p>
+              
+              <p class="font-bold underline text-slate-800 mt-2">Dépôt de Garantie - Etat des lieux :</p>
+              <p>Le Locataire devra remettre au Loueur, au moins 30 jours avant la date de début de location, une somme de : 400,00 € pour garantie de l'exécution des obligations locatives du ou des Locataires (chèque non encaissé).</p>
+              <p>Cette somme vise à couvrir notamment :<br>
+              - Les arriérés de loyer et/ou de charges non acquittés par le Locataire au moment du départ<br>
+              - Les réparations, rachats, liées à une dégradation des lieux et/ou objets présents dans les lieux par le Locataire<br>
+              - Les taxes ou impôts dus par le Locataire si non acquittés au moment du départ.</p>
+              <p>Dans le cas contraire, le dépôt de garantie sera restitué dans un délai maximum de 2 mois suivant le départ du Locataire. Cette somme n'est pas productive d'intérêts.</p>
+              <p>En cas d'insuffisance, le Locataire s'engage à compléter la somme sur simple présentation de facture : la restitution des clés au Loueur, en fin de location, n'emporte pas renonciation du Loueur à des indemnités pour réparations locatives, s'il prouve que les dommages sont le fait du Locataire.</p>
+              <p>Les lieux loués sont délivrés dans un bon état d'entretien et disposent de l'ensemble du matériel et des fournitures mentionnées sur l'état des lieux présent dans l'appartement. En cas de réclamation ou de contestation, le Locataire devra informer le Loueur, ou son représentant dans la station (mentionné par le Loueur au Locataire dès reception du solde total) dès que possible afin qu'il remédie aux éventuels désordres constatés, et au plus tard dans le délai mentionné au paragraphe ci-après "réclamation".</p>
+              
+              <p class="font-bold underline text-slate-800 mt-2">Assurance « responsabilité civile villégiature » :</p>
+              <p>Le Locataire porte la responsabilité des dommages causés à l'immeuble occupé pendant la durée de la location. Il est par conséquent fortement recommandé aux Locataires d'être assurés à une compagnie d'assurances notoirement connue contre les risques de vol, incendie et dégât des eaux, tant pour ces risques locatifs que pour le mobilier donné en location, ainsi que pour les recours des voisins, et en justifier à première réquisition du Loueur ou de son mandataire.</p>
+
+              <p class="font-bold underline text-slate-800 mt-2">Couchages :</p>
+              <p>Les locaux faisant l'objet de la présente location ne doivent, sous aucun prétexte, être occupés par un nombre de personnes supérieur à celui indiqué sur le contrat de location sauf accord préalable et écrit du Loueur ou de son mandataire. Le cas échéant, le Loueur ou son mandataire pourra réclamer un supplément de loyer, ou refuser l'entrée dans les lieux : supplément de 80,00 Euros TTC par personne et par jour pour toute personne en plus de celles prévues au présent contrat de location.</p>
+              <p>Concernant le lit superposé. Il est rappelé aux Locataires que conformément à la réglementation applicable « le couchage en hauteur ne convient pas à des enfants de moins de six ans ».</p>
+              
+              <p class="font-bold underline text-slate-800 mt-2">Ménage :</p>
+              <p>Le « Ménage final » est obligatoire, il est au tarif indiqué dans le récapitulatif du montant du séjour sur le présent contrat. Cela impose néanmoins de laisser la cuisine propre et rangée, de vider les poubelles, ainsi que le frigo.</p>
+
+              <p class="font-bold underline text-slate-800 mt-2">Kit bébé :</p>
+              <p>Il comprend un lit parapluie avec drap et couette, une baignoire et une chaise haute avec coussin, un matelas à langer. Nous vous conseillons vivement de le réserver avant votre arrivée.</p>
+              <p>Le Loueur ne peut être tenu comme responsable d'une mauvaise utilisation du kit et du non-respect des conseils d'utilisation.</p>
+              
+              <p class="font-bold underline text-slate-800 mt-2">Mobilier - Equipement :</p>
+              <p>Tout bris ou dégradation peut engendrer des réparations coûteuses, nécessitant l'intervention d'artisans qualifiés. Avant d'effectuer de mauvaises manipulations pouvant entrainer des dégâts, nous vous informons que des notices d'entretien et d'utilisation sont à votre disposition dans votre appartement ou sur demande. La réparation ou le remplacement à neuf devant se faire dans les meilleurs délais et ce afin de répondre aux attentes des Locataires suivants, le Loueur se réserve le droit de faire appel au professionnel de son choix.</p>
+            </div>
+
+            <div class="border-t border-slate-300 pt-2 text-center text-[9px] text-slate-500">
+              <p>Le rocher saint pierre 1H - avenue de la vallée d’or - 73450 Valloire</p>
+              <p>Tel. +33 (0)603241566 – Email : lerochersaintpierre1h@gmail.com</p>
+              <div class="flex justify-between mt-1 px-4 font-bold"><span>page 4/5</span><span>Paraphes</span></div>
+            </div>
+          </div>
+
+          <!-- PAGE 5 / 5 -->
+          <div class="pdf-a4-contrat pdf-a4-contrat-last text-[10px] leading-normal text-justify">
+            <div class="space-y-1.5">
+              <div class="bg-sky-700 text-white text-center py-2.5 rounded-xl mb-3 shadow-sm">
+                <h1 class="text-sm font-extrabold uppercase tracking-widest">OFFRE DE LOCATION SAISONNIÈRE</h1>
+                <h2 class="text-xs font-semibold mt-0.5">Le Rocher Saint Pierre - 1H</h2>
+              </div>
+
+              <p class="font-bold underline text-slate-800">Connexion au Wifi Internet :</p>
+              <p>S'agissant de la connexion au Wifi de l'appartement pour naviguer sur Internet, le Locataire est informé qu'Internet est un réseau véhiculant des données susceptibles d'être protégées par des droits de propriété intellectuelle, littéraire, artistique, photographique ou d'enfreindre les dispositions légales en vigueur. Le Locataire s'interdit donc de transmettre sur Internet ou de télécharger depuis Internet toute donnée prohibée, illicite, illégale, contraire aux bonnes mœurs ou à l'ordre public et portant atteinte ou susceptible de porter atteinte aux droits de tiers et notamment aux droits de propriété intellectuelle, littéraire, artistique ou photographique.</p>
+              <p>Le Locataire est seul responsable de tout préjudice direct ou indirect, matériel ou immatériel causé à des tiers du fait de sa connexion au Wifi de l'appartement. De même il lui est formellement interdit de communiquer aux voisins le code d'accès du réseau sous peine de poursuites pénales.</p>
+              
+              <p class="font-bold underline text-slate-800 mt-2">Animaux :</p>
+              <p class="font-extrabold text-slate-900">Les animaux ne sont pas acceptés au sein de l'appartement.</p>
+
+              <p class="font-bold underline text-slate-800 mt-2">Responsabilité :</p>
+              <p>Nous tenons à porter à votre connaissance le fait que, conformément à la législation en vigueur, la location en meublés de tourisme n'entre pas dans le cadre de la responsabilité des hôteliers. En conséquence, la responsabilité de Mme Le Corre et M. Brémond ne saurait être engagée en cas de perte, de vol ou de dégradations d'effets personnels dans notre appartement, dans les parkings ou locaux communs, local a ski...</p>
+              <p>Durant la durée de votre séjour, vous êtes responsable de l'appartement que vous occupez et du mobilier s'y trouvant notamment en cas de perte, de vol ou de dégradations, et il est vivement recommandé de vous assurer contre ces risques.</p>
+              
+              <p class="font-bold underline text-slate-800 mt-2">Règlement intérieur :</p>
+              <p>Certaines précautions peuvent vous éviter un éventuel désagrément : fermer la porte fenêtre, fenêtres et fermer votre porte à clef en quittant votre appartement. Nous vous rappelons que les oublis d'effets personnels dans votre appartement lors de la libération des lieux ne sauraient engager notre responsabilité.</p>
+              <p>L'entrée de l'immeuble se fait par un digicode, il est important pour la sécurité de la maison de ne pas communiquer ce code à des personnes non résidentes.</p>
+              <p>Pour la sécurité de l'ensemble de l'immeuble, nous vous rappelons qu'il est de votre responsabilité de vérifier la fermeture de la porte d'entrée de l'appartement ainsi que celle des parties communes (local à skis etc...).</p>
+              
+              <p class="font-bold underline text-slate-800 mt-2">Travaux :</p>
+              <p>Le Locataire devra laisser libre accès à l'appartement loué au Loueur et à ses entrepreneurs, qui devraient intervenir pour réaliser des travaux urgents.</p>
+              
+              <p class="font-bold underline text-slate-800 mt-2">Réclamations :</p>
+              <p>Toute réclamation ou contestation devra nous parvenir au plus tard un mois après la date de fin de séjour. Au-delà de ce délai, la réclamation ne pourra pas être prise en considération.</p>
+              
+              <p class="font-bold underline text-slate-800 mt-2">Notifications :</p>
+              <p>Toute notification est valablement effectuée.<br>
+              Pour le Locataire : à l'adresse du Locataire Principal,<br>
+              Pour le Loueur à l'adresse de la location.</p>
+              
+              <p class="font-bold underline text-slate-800 mt-2">Juridiction compétente :</p>
+              <p>En cas de litige, le consommateur est informé de la possibilité de recourir à une médiation conventionnelle ou à une conciliation.</p>
+              <p>Le tribunal territorialement compétent est celui du lieu de la location, soit les tribunaux matériellement compétents situés dans le ressort de la Cour d'Appel de Chambéry (73).</p>
+            </div>
+
+            <div class="border-t border-slate-300 pt-2 text-center text-[9px] text-slate-500">
+              <p>Le rocher saint pierre 1H - avenue de la vallée d’or - 73450 Valloire</p>
+              <p>Tel. +33 (0)603241566 – Email : lerochersaintpierre1h@gmail.com</p>
+              <div class="flex justify-between mt-1 px-4 font-bold"><span>page 5/5</span><span>Paraphes</span></div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- 2. TEMPLATE RÉCAPITULATIF PAIEMENT (PAGE A4 UNIQUE) -->
+        <div id="pdf-recap-template" class="bg-white text-slate-800 font-sans text-[10px] leading-snug pdf-a4-recap">
+          <!-- En-tête -->
+          <div class="bg-sky-700 text-white text-center py-2.5 px-4 rounded-xl mb-3 shadow-sm relative">
+            <h1 class="text-base font-extrabold uppercase tracking-widest">RÉCAPITULATIF PAIEMENT</h1>
+            <h2 class="text-xs font-semibold mt-0.5">Le Rocher Saint Pierre - 1H</h2>
+            <div class="absolute bottom-2 right-4 text-[9px] font-medium opacity-90">
+              le <span x-text="new Date().toLocaleDateString('fr-FR')"></span>
+            </div>
+          </div>
+
+          <!-- Coordonnées Locataire -->
+          <div class="mb-3 border-2 border-sky-700 rounded-lg overflow-hidden">
+            <div class="bg-sky-700 text-white font-bold p-1 text-[10px] uppercase">Coordonnées Locataire</div>
+            <div class="p-2.5 bg-sky-50 space-y-1.5">
+              <div class="grid grid-cols-2 gap-3">
+                <div class="flex items-center"><span class="font-bold w-16 text-[10px]">NOM :</span><div class="bg-slate-200 border border-slate-300 h-6 flex-grow rounded flex items-center px-2 font-bold uppercase" x-text="reservation.nom"></div></div>
+                <div class="flex items-center"><span class="font-bold w-20 text-[10px]">PRENOM :</span><div class="bg-slate-200 border border-slate-300 h-6 flex-grow rounded flex items-center px-2 font-bold capitalize" x-text="reservation.prenom"></div></div>
+              </div>
+              <div class="flex items-center"><span class="font-bold w-16 text-[10px]">ADRESSE :</span><div class="bg-slate-200 border border-slate-300 h-6 flex-grow rounded flex items-center px-2 font-bold" x-text="reservation.adresse || ''"></div></div>
+              <div class="grid grid-cols-2 gap-3">
+                <div class="flex items-center"><span class="font-bold w-16 text-[10px]">CP :</span><div class="bg-slate-200 border border-slate-300 h-6 flex-grow rounded flex items-center px-2 font-bold" x-text="reservation.codePostal || ''"></div></div>
+                <div class="flex items-center"><span class="font-bold w-20 text-[10px]">VILLE :</span><div class="bg-slate-200 border border-slate-300 h-6 flex-grow rounded flex items-center px-2 font-bold" x-text="reservation.ville || ''"></div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dates de Location -->
+          <div class="mb-3 border-2 border-sky-700 rounded-lg overflow-hidden">
+            <div class="bg-sky-700 text-white font-bold p-1 text-[10px] uppercase">Dates de Location</div>
+            <div class="p-2.5 bg-sky-50 grid grid-cols-2 gap-4">
+              <div class="flex items-center"><span class="font-bold w-16 text-[10px]">ARRIVÉE :</span><div class="bg-slate-200 border border-slate-300 h-6 flex-grow rounded flex items-center justify-center px-2 font-bold" x-text="formatDate(reservation.dateDebut)"></div></div>
+              <div class="flex items-center"><span class="font-bold w-16 text-[10px]">DÉPART :</span><div class="bg-slate-200 border border-slate-300 h-6 flex-grow rounded flex items-center justify-center px-2 font-bold" x-text="formatDate(reservation.dateFin)"></div></div>
+            </div>
+          </div>
+
+          <!-- Détail Séjour & Paiements -->
+          <div class="border-2 border-sky-700 rounded-lg overflow-hidden">
+            <div class="bg-sky-700 text-white font-bold p-1 text-[10px] uppercase">Détail du Séjour & Paiements</div>
+            <div class="p-2 bg-sky-50 text-[10px]">
+              <table class="w-full border-collapse">
+                <tbody>
+                  <tr class="border-b border-sky-200">
+                    <td class="py-1.5 font-bold uppercase">Prix du séjour</td>
+                    <td class="py-1.5 text-right"></td>
+                    <td class="py-1.5 pr-2 text-right font-bold" x-text="formatCurrency(reservation.prixTotal)"></td>
+                  </tr>
+                  <tr class="border-b border-sky-200">
+                    <td class="py-1.5 font-bold uppercase">Taxe de séjour</td>
+                    <td class="py-1.5 text-center italic text-[9px]"><span x-text="formatCurrency(donnees.taxeSejour)"></span> /jour/adulte - <span x-text="reservation.nbAdulte"></span> ADULTE(S)</td>
+                    <td class="py-1.5 pr-2 text-right font-bold" x-text="formatCurrency(calcTaxeSejour(reservation))"></td>
+                  </tr>
+                  <tr class="border-b border-sky-200">
+                    <td class="py-1.5 font-bold uppercase">Option ménage <span class="italic normal-case text-[9px] font-normal">(obligatoire)</span></td>
+                    <td class="py-1.5 text-center font-bold text-slate-700" x-text="reservation.forceMenageNon === 'oui' ? 'NON' : 'OUI'"></td>
+                    <td class="py-1.5 pr-2 text-right font-bold" x-text="formatCurrency(calcMenage(reservation))"></td>
+                  </tr>
+                  <tr class="border-b border-sky-200">
+                    <td class="py-1.5 font-bold uppercase">Option kit bébé</td>
+                    <td class="py-1.5 text-center font-bold uppercase text-slate-700" x-text="reservation.kitBebe || 'NON'"></td>
+                    <td class="py-1.5 pr-2 text-right font-bold italic text-slate-500">Inclus</td>
+                  </tr>
+                  <tr class="bg-sky-100 border-b-2 border-sky-300">
+                    <td class="py-2 pl-2 font-extrabold uppercase text-sky-900">Total Séjour</td>
+                    <td></td>
+                    <td class="py-2 pr-2 text-right font-extrabold text-sky-900 text-xs" x-text="formatCurrency(calcTotalSejour(reservation))"></td>
+                  </tr>
+                  
+                  <tr><td colspan="3" class="h-2"></td></tr>
+                  
+                  <tr class="border-b border-sky-200">
+                    <td class="py-1">
+                      <span class="font-bold uppercase">Acompte versé</span>
+                      <span class="ml-2 italic text-[9px] text-slate-600" x-show="reservation.dateVirementAcompte">le <span x-text="formatDate(reservation.dateVirementAcompte)"></span></span>
+                      <div class="text-[9px] text-slate-500" x-show="reservation.numVirementAcompte">réf : <span x-text="reservation.numVirementAcompte"></span></div>
+                    </td>
+                    <td></td>
+                    <td class="py-1 pr-2 text-right font-bold text-emerald-600" x-text="formatCurrency(reservation.acompte)"></td>
+                  </tr>
+                  <tr class="border-b border-sky-200">
+                    <td class="py-1">
+                      <span class="font-bold uppercase">Solde versé</span>
+                      <span class="ml-2 italic text-[9px] text-slate-600" x-show="reservation.dateVirementSolde">le <span x-text="formatDate(reservation.dateVirementSolde)"></span></span>
+                      <div class="text-[9px] text-slate-500" x-show="reservation.numVirementSolde">réf : <span x-text="reservation.numVirementSolde"></span></div>
+                    </td>
+                    <td></td>
+                    <td class="py-1 pr-2 text-right font-bold text-emerald-600" x-text="formatCurrency(reservation.soldePaye)"></td>
+                  </tr>
+                  <tr class="bg-slate-200">
+                    <td class="py-1.5 font-extrabold uppercase text-slate-900 pl-2">
+                      Restant à payer
+                      <span class="ml-2 text-[9px] normal-case italic font-normal text-slate-600" x-show="calcResteAPayer(reservation) > 0">
+                        pour le <span x-text="getDueDate(reservation.dateDebut)"></span>
+                      </span>
+                    </td>
+                    <td></td>
+                    <td class="py-1.5 pr-2 text-right font-extrabold text-xs" :class="calcResteAPayer(reservation) > 0 ? 'text-rose-600' : 'text-emerald-600'" x-text="formatCurrency(calcResteAPayer(reservation))"></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- LIGNE DU CHÈQUE DE CAUTION (Collée au tableau avec un tout petit espace) -->
+          <div class="border-2 border-slate-800 rounded-lg overflow-hidden bg-slate-50 shadow-sm mt-2">
+            <div class="p-2 flex items-center justify-between">
+              <span class="font-bold uppercase text-[10px]">Chèque de caution (400,00 € - non encaissé)</span>
+              <div class="flex items-center space-x-3 mr-2">
+                <span class="font-bold text-[10px]">
+                  REÇU : 
+                  <span class="ml-1 font-extrabold text-xs" :class="(reservation?.cautionRecue === 'oui' || reservation?.caution === 'oui') ? 'text-emerald-600' : 'text-rose-600'" x-text="(reservation?.cautionRecue === 'oui' || reservation?.caution === 'oui') ? 'OUI' : 'NON'"></span>
+                </span>
+              </div>
+            </div>
+          </div>
+          
+        </div>
+
+      </div>
+    </template>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
