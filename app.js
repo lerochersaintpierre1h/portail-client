@@ -133,6 +133,7 @@ function clientApp() {
     downloadContratPDF() {
       if (!this.reservation || this.isBooking()) return;
       
+      // Remise à zéro temporaire du scroll pour éviter la coupure html2canvas
       const originalScrollY = window.scrollY;
       window.scrollTo(0, 0);
 
