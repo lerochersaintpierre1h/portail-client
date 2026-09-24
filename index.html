@@ -3,7 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <!-- Titre de la page -->
   <title>Espace Client — Rocher Saint Pierre 1H</title>
+
+  <!-- Icônes pour les favoris (Navigateur) et l'ajout sur écran d'accueil (Smartphone) -->
+  <link rel="icon" href="logo-menu-appli.png" type="image/png">
+  <link rel="apple-touch-icon" href="logo-menu-appli.png">
+  <meta name="theme-color" content="#0f172a">
 
   <!-- CDN Tailwind CSS & Alpine.js -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -58,7 +65,10 @@
   <!-- ÉCRAN DE CONNEXION -->
   <div x-show="!isAuthenticated" class="min-h-screen flex items-center justify-center p-4 relative z-10">
     <div class="bg-white p-8 rounded-2xl shadow-2xl max-w-sm w-full">
+      
+      <!-- En-tête Connexion avec Logo sans fond et proportionnel -->
       <div class="text-center mb-6">
+        <img src="logo-menu-appli.png" alt="Logo Rocher Saint Pierre" class="h-16 w-auto mx-auto mb-4">
         <h1 class="text-xl font-bold text-slate-900">Rocher Saint Pierre 1H</h1>
         <p class="text-xs text-slate-500 mt-1">Espace Voyageur</p>
       </div>
@@ -103,9 +113,13 @@
 
       <!-- En-tête -->
       <div class="bg-slate-900 text-white p-6 rounded-2xl shadow-lg flex justify-between items-center">
-        <div>
-          <h1 class="text-xl font-bold" x-text="'Bonjour ' + reservation?.prenom + ' ' + reservation?.nom"></h1>
-          <p class="text-xs text-emerald-400 mt-0.5" x-text="'Séjour du ' + formatDate(reservation?.dateDebut) + ' au ' + formatDate(reservation?.dateFin)"></p>
+        <div class="flex items-center gap-4">
+          <!-- Logo à côté du Bonjour sans fond et proportionnel -->
+          <img src="logo-menu-appli.png" alt="Logo Rocher Saint Pierre" class="h-12 w-auto hidden sm:block">
+          <div>
+            <h1 class="text-xl font-bold" x-text="'Bonjour ' + reservation?.prenom + ' ' + reservation?.nom"></h1>
+            <p class="text-xs text-emerald-400 mt-0.5" x-text="'Séjour du ' + formatDate(reservation?.dateDebut) + ' au ' + formatDate(reservation?.dateFin)"></p>
+          </div>
         </div>
         <button @click="isAuthenticated = false" class="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-2 rounded-lg text-slate-300 transition">
           Déconnexion
@@ -489,7 +503,7 @@
           <!-- Détail Séjour & Paiements -->
           <div class="border-2 border-sky-700 rounded-lg overflow-hidden">
             <div class="bg-sky-700 text-white font-bold p-1 text-[10px] uppercase">Détail du Séjour & Paiements</div>
-            <div class="p-2 bg-sky-50 text-[10px]">
+            <div class="p-2.5 bg-sky-50 text-[10px]">
               <table class="w-full border-collapse">
                 <tbody>
                   <tr class="border-b border-sky-200">
@@ -565,7 +579,7 @@
               </div>
             </div>
           </div>
-          
+
         </div>
 
       </div>
