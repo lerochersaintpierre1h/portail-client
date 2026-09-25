@@ -165,7 +165,10 @@
      <!-- 1. FEUILLE DE ROUTE -->
       <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
         <h2 class="text-lg font-bold text-slate-900 mb-2" x-text="lang === 'fr' ? '1. Consignes & Arrivée' : '1. Arrival & Instructions'"></h2>
-        <p class="text-sm text-slate-600 mb-4" x-text="lang === 'fr' ? 'Retrouvez toutes les informations pratiques, digicodes et consignes d\'accès au logement dans la feuille de route.' : 'Find all practical information, access codes, and arrival instructions in the road map.'"></p>
+        <p class="text-sm text-slate-600 mb-2" x-text="lang === 'fr' ? 'Retrouvez toutes les informations pratiques, digicodes et consignes d\'accès au logement dans la feuille de route.' : 'Find all practical information, access codes, and arrival instructions in the road map.'"></p>
+        
+        <!-- Avertissement en rouge dans les deux langues -->
+        <p class="text-xs font-bold text-rose-600 mb-4" x-text="lang === 'fr' ? '*Nous ne fournissons pas les draps et serviettes' : '*We do not provide bed sheets and towels'"></p>
 
         <div class="flex flex-wrap gap-3">
           <a x-show="lang === 'fr'" href="Le Rocher Saint-Pierre 1h Feuille de Route.pdf" download="Le Rocher Saint-Pierre 1h Feuille de Route.pdf" class="inline-flex items-center justify-center bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-3 rounded-xl shadow transition text-sm">
@@ -251,6 +254,33 @@
             </button>
           </div>
         </div>
+      </div>
+
+      <!-- LIENS BAS DE PAGE (CONTACT MAIL & SITE WEB EN BLEU-VIOLET) -->
+      <div class="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-4 text-center pt-2 pb-6 text-xs sm:text-sm">
+        
+        <!-- Mail -->
+        <div class="flex flex-wrap items-center justify-center gap-2">
+          <span class="text-slate-600 font-medium">
+            <span x-text="lang === 'fr' ? 'Pour toute demande :' : 'For any inquiries:'"></span>
+            <strong class="text-slate-800 font-semibold select-all ml-1">lerochersaintpierre1h@gmail.com</strong>
+          </span>
+          <a href="mailto:lerochersaintpierre1h@gmail.com" class="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3.5 py-1.5 rounded-lg shadow transition text-xs">
+            ✉️ <span x-text="lang === 'fr' ? 'Envoyer un e-mail' : 'Send an e-mail'"></span>
+          </a>
+        </div>
+
+        <!-- Site web -->
+        <div class="flex flex-wrap items-center justify-center gap-2">
+          <span class="text-slate-600 font-medium">
+            <span x-text="lang === 'fr' ? 'Découvrir l\'appartement :' : 'Discover the apartment:'"></span>
+            <strong class="text-slate-800 font-semibold select-all ml-1">www.rochersaintpierre.fr</strong>
+          </span>
+          <a href="https://www.rochersaintpierre.fr" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3.5 py-1.5 rounded-lg shadow transition text-xs">
+            🌐 <span x-text="lang === 'fr' ? 'Visiter le site' : 'Visit website'"></span>
+          </a>
+        </div>
+
       </div>
 
     </div>
