@@ -9,8 +9,8 @@
 
   <!-- Icônes pour les favoris (Navigateur) et l'ajout sur écran d'accueil (Smartphone) -->
   <link rel="icon" type="image/x-icon" href="favicon.ico">
-<link rel="apple-touch-icon" href="favicon.png">
-<meta name="theme-color" content="#0f172a">
+  <link rel="apple-touch-icon" href="favicon.png">
+  <meta name="theme-color" content="#0f172a">
 
   <!-- CDN Tailwind CSS & Alpine.js -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -33,7 +33,7 @@
       top: 0;
     }
     
-    /* Format A4 (210mm x 297mm). On bride à 290mm avec overflow hidden pour empêcher la page 2 vierge */
+    /* Format A4 (210mm x 297mm) */
     .pdf-a4-contrat {
       width: 210mm;
       height: 290mm;
@@ -52,7 +52,7 @@
 
     .pdf-a4-recap {
       width: 210mm;
-      height: 290mm; /* Verrouillé sur 1 seule page */
+      height: 290mm;
       box-sizing: border-box;
       padding: 15mm;
       background: white;
@@ -60,26 +60,29 @@
     }
   </style>
 </head>
-<body class="bg-slate-900 text-slate-800 font-sans min-h-screen flex flex-col justify-between overflow-x-hidden" x-data="clientApp()">
+<body class="bg-slate-900 text-slate-800 font-sans min-h-screen flex flex-col justify-between overflow-x-hidden" x-data="{ ...clientApp(), lang: 'fr' }">
 
   <!-- ÉCRAN DE CONNEXION -->
-  <div x-show="!isAuthenticated" class="min-h-screen flex items-center justify-center p-4 relative z-10">
+  <div x-show="!isAuthenticated" class="min-h-screen flex flex-col items-center justify-center p-4 relative z-10">
+    
+    <!-- Logo sur le fond bleu -->
+    <img src="logo-menu-appli.png" alt="Logo Rocher Saint Pierre" class="h-20 w-auto mb-6">
+
     <div class="bg-white p-8 rounded-2xl shadow-2xl max-w-sm w-full">
       
-      <!-- En-tête Connexion avec Logo sans fond et proportionnel -->
+      <!-- En-tête Connexion -->
       <div class="text-center mb-6">
-        <img src="logo-menu-appli.png" alt="Logo Rocher Saint Pierre" class="h-16 w-auto mx-auto mb-4">
         <h1 class="text-xl font-bold text-slate-900">Rocher Saint Pierre 1H</h1>
-        <p class="text-xs text-slate-500 mt-1">Espace Voyageur</p>
+        <p class="text-xs text-slate-500 mt-1" x-text="lang === 'fr' ? 'Espace Voyageur' : 'Guest Area'"></p>
       </div>
 
       <form @submit.prevent="login()" class="space-y-4">
         <div>
-          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Votre E-mail</label>
-          <input type="email" x-model="loginEmail" placeholder="exemple@mail.com" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none" required>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1" x-text="lang === 'fr' ? 'Votre E-mail' : 'Your E-mail'"></label>
+          <input type="email" x-model="loginEmail" :placeholder="lang === 'fr' ? 'exemple@mail.com' : 'example@mail.com'" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none" required>
         </div>
         <div>
-          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Mot de passe</label>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1" x-text="lang === 'fr' ? 'Mot de passe' : 'Password'"></label>
           <div class="relative flex items-center">
             <input :type="showPassword ? 'text' : 'password'" x-model="loginPassword" placeholder="••••••••" class="w-full border rounded-lg pl-3 pr-10 py-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none" required>
             
@@ -98,46 +101,65 @@
           </div>
         </div>
 
-        <p x-show="loginError" class="text-rose-500 text-xs font-bold text-center" x-text="loginError"></p>
+        <p x-show="loginError" class="text-rose-500 text-xs font-bold text-center" x-text="lang === 'fr' ? loginError : (loginError === 'Mot de passe incorrect.' ? 'Incorrect password.' : (loginError === 'Aucune réservation trouvée avec cet e-mail.' ? 'No booking found with this e-mail.' : 'Server connection error.'))"></p>
 
-        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-lg shadow transition">
-          Accéder à mon espace
+        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-lg shadow transition" x-text="lang === 'fr' ? 'Accéder à mon espace' : 'Access my space'">
         </button>
       </form>
     </div>
+
+    <!-- Sélecteur de langue sous le tableau de connexion -->
+    <div class="flex bg-slate-800 rounded-lg p-1 border border-slate-700 mt-6 shadow-lg">
+      <button @click="lang = 'fr'" :class="lang === 'fr' ? 'bg-slate-700 text-white shadow' : 'text-slate-400 hover:text-white'" class="px-3 py-1.5 rounded text-xs font-bold transition flex items-center gap-1.5">
+        🇫🇷 <span>Français</span>
+      </button>
+      <button @click="lang = 'en'" :class="lang === 'en' ? 'bg-slate-700 text-white shadow' : 'text-slate-400 hover:text-white'" class="px-3 py-1.5 rounded text-xs font-bold transition flex items-center gap-1.5">
+        🇬🇧 <span>English</span>
+      </button>
+    </div>
+
   </div>
 
   <!-- TABLEAU DE BORD CLIENT -->
   <div x-show="isAuthenticated" x-cloak class="min-h-screen bg-slate-100 p-4 md:p-8 relative z-10">
     <div class="max-w-3xl mx-auto space-y-6">
 
-      <!-- En-tête -->
-      <div class="bg-slate-900 text-white p-6 rounded-2xl shadow-lg flex justify-between items-center">
+      <!-- En-tête avec Sélecteur de Langue synchro -->
+      <div class="bg-slate-900 text-white p-6 rounded-2xl shadow-lg flex flex-wrap justify-between items-center gap-4">
         <div class="flex items-center gap-4">
-          <!-- Logo à côté du Bonjour sans fond et proportionnel -->
           <img src="logo-menu-appli.png" alt="Logo Rocher Saint Pierre" class="h-12 w-auto hidden sm:block">
           <div>
-            <h1 class="text-xl font-bold" x-text="'Bonjour ' + reservation?.prenom + ' ' + reservation?.nom"></h1>
-            <p class="text-xs text-emerald-400 mt-0.5" x-text="'Séjour du ' + formatDate(reservation?.dateDebut) + ' au ' + formatDate(reservation?.dateFin)"></p>
+            <h1 class="text-xl font-bold" x-text="(lang === 'fr' ? 'Bonjour ' : 'Hello ') + (reservation?.prenom || '') + ' ' + (reservation?.nom || '')"></h1>
+            <p class="text-xs text-emerald-400 mt-0.5" x-text="(lang === 'fr' ? 'Séjour du ' : 'Stay from ') + formatDate(reservation?.dateDebut) + (lang === 'fr' ? ' au ' : ' to ') + formatDate(reservation?.dateFin)"></p>
           </div>
         </div>
-        <button @click="isAuthenticated = false" class="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-2 rounded-lg text-slate-300 transition">
-          Déconnexion
-        </button>
+
+        <div class="flex items-center gap-3">
+          <!-- Drapeaux pour le choix de la langue -->
+          <div class="flex bg-slate-800 rounded-lg p-1 border border-slate-700">
+            <button @click="lang = 'fr'" :class="lang === 'fr' ? 'bg-slate-700 text-white shadow' : 'text-slate-400 hover:text-white'" class="px-2 py-1 rounded text-xs font-bold transition flex items-center gap-1">
+              🇫🇷 <span class="hidden sm:inline">FR</span>
+            </button>
+            <button @click="lang = 'en'" :class="lang === 'en' ? 'bg-slate-700 text-white shadow' : 'text-slate-400 hover:text-white'" class="px-2 py-1 rounded text-xs font-bold transition flex items-center gap-1">
+              🇬🇧 <span class="hidden sm:inline">EN</span>
+            </button>
+          </div>
+
+          <button @click="isAuthenticated = false" class="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-2 rounded-lg text-slate-300 transition" x-text="lang === 'fr' ? 'Déconnexion' : 'Logout'">
+          </button>
+        </div>
       </div>
 
      <!-- 1. FEUILLE DE ROUTE -->
       <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-        <h2 class="text-lg font-bold text-slate-900 mb-2">1. Consignes & Arrivée / Arrival Info</h2>
-        <p class="text-sm text-slate-600 mb-4">
-          Retrouvez toutes les informations pratiques, digicodes et consignes d'accès au logement dans la feuille de route.
-        </p>
+        <h2 class="text-lg font-bold text-slate-900 mb-2" x-text="lang === 'fr' ? '1. Consignes & Arrivée' : '1. Arrival & Instructions'"></h2>
+        <p class="text-sm text-slate-600 mb-4" x-text="lang === 'fr' ? 'Retrouvez toutes les informations pratiques, digicodes et consignes d\'accès au logement dans la feuille de route.' : 'Find all practical information, access codes, and arrival instructions in the road map.'"></p>
 
         <div class="flex flex-wrap gap-3">
-          <a href="Le Rocher Saint-Pierre 1h Feuille de Route.pdf" download="Le Rocher Saint-Pierre 1h Feuille de Route.pdf" class="inline-flex items-center justify-center bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-3 rounded-xl shadow transition text-sm">
+          <a x-show="lang === 'fr'" href="Le Rocher Saint-Pierre 1h Feuille de Route.pdf" download="Le Rocher Saint-Pierre 1h Feuille de Route.pdf" class="inline-flex items-center justify-center bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-3 rounded-xl shadow transition text-sm">
             📥 Télécharger la Feuille de route (FR)
           </a>
-          <a href="Le Rocher Saint-Pierre 1h Road Map.pdf" download="Le Rocher Saint-Pierre 1h Road Map.pdf" class="inline-flex items-center justify-center bg-sky-600 hover:bg-sky-500 text-white font-bold px-5 py-3 rounded-xl shadow transition text-sm">
+          <a x-show="lang === 'en'" href="Le Rocher Saint-Pierre 1h Road Map.pdf" download="Le Rocher Saint-Pierre 1h Road Map.pdf" class="inline-flex items-center justify-center bg-sky-600 hover:bg-sky-500 text-white font-bold px-5 py-3 rounded-xl shadow transition text-sm">
             📥 Download Road Map (EN)
           </a>
         </div>
@@ -145,16 +167,14 @@
 
       <!-- 2. LIVRET D'ACCUEIL -->
       <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-        <h2 class="text-lg font-bold text-slate-900 mb-2">2. Livret d'Accueil / Welcome Book</h2>
-        <p class="text-sm text-slate-600 mb-4">
-          Consultez le livret d'accueil pour découvrir tous les équipements de l'appartement, le Wi-Fi et les activités de la station.
-        </p>
+        <h2 class="text-lg font-bold text-slate-900 mb-2" x-text="lang === 'fr' ? '2. Livret d\'Accueil' : '2. Welcome Book'"></h2>
+        <p class="text-sm text-slate-600 mb-4" x-text="lang === 'fr' ? 'Consultez le livret d\'accueil pour découvrir tous les équipements de l\'appartement, le Wi-Fi et les activités de la station.' : 'Check the welcome book to discover all the apartment\'s amenities, Wi-Fi, and resort activities.'"></p>
 
         <div class="flex flex-wrap gap-3">
-          <a href="Le Rocher Saint-Pierre 1h Livret Accueil.pdf" download="Le Rocher Saint-Pierre 1h Livret Accueil.pdf" class="inline-flex items-center justify-center bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-3 rounded-xl shadow transition text-sm">
+          <a x-show="lang === 'fr'" href="Le Rocher Saint-Pierre 1h Livret Accueil.pdf" download="Le Rocher Saint-Pierre 1h Livret Accueil.pdf" class="inline-flex items-center justify-center bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-3 rounded-xl shadow transition text-sm">
             📥 Télécharger le Livret d'Accueil (FR)
           </a>
-          <a href="Le Rocher Saint-Pierre 1h welcome book.pdf" download="Le Rocher Saint-Pierre 1h welcome book.pdf" class="inline-flex items-center justify-center bg-sky-600 hover:bg-sky-500 text-white font-bold px-5 py-3 rounded-xl shadow transition text-sm">
+          <a x-show="lang === 'en'" href="Le Rocher Saint-Pierre 1h welcome book.pdf" download="Le Rocher Saint-Pierre 1h welcome book.pdf" class="inline-flex items-center justify-center bg-sky-600 hover:bg-sky-500 text-white font-bold px-5 py-3 rounded-xl shadow transition text-sm">
             📥 Download Welcome Book (EN)
           </a>
         </div>
@@ -162,24 +182,24 @@
 
       <!-- 3. RÉCAPITULATIF DE RÉSERVATION -->
       <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
-        <h2 class="text-lg font-bold text-slate-900 border-b pb-2" x-text="isBooking() ? '3. Récapitulatif de réservation' : '3. Récapitulatif de réservation & Paiement'"></h2>
+        <h2 class="text-lg font-bold text-slate-900 border-b pb-2" x-text="isBooking() ? (lang === 'fr' ? '3. Récapitulatif de réservation' : '3. Booking Summary') : (lang === 'fr' ? '3. Récapitulatif de réservation & Paiement' : '3. Booking Summary & Payment')"></h2>
 
         <div class="grid grid-cols-2 gap-4 text-sm">
           <div>
-            <span class="text-xs text-slate-400 uppercase font-bold block">Arrivée</span>
+            <span class="text-xs text-slate-400 uppercase font-bold block" x-text="lang === 'fr' ? 'Arrivée' : 'Arrival'"></span>
             <span class="font-bold text-slate-800" x-text="formatDate(reservation?.dateDebut)"></span>
           </div>
           <div>
-            <span class="text-xs text-slate-400 uppercase font-bold block">Départ</span>
+            <span class="text-xs text-slate-400 uppercase font-bold block" x-text="lang === 'fr' ? 'Départ' : 'Departure'"></span>
             <span class="font-bold text-slate-800" x-text="formatDate(reservation?.dateFin)"></span>
           </div>
           <div>
-            <span class="text-xs text-slate-400 uppercase font-bold block">Voyageurs</span>
-            <span class="font-semibold text-slate-800" x-text="(reservation?.nbAdulte || 1) + ' Adulte(s), ' + (reservation?.nbEnfant || 0) + ' Enfant(s)'"></span>
+            <span class="text-xs text-slate-400 uppercase font-bold block" x-text="lang === 'fr' ? 'Voyageurs' : 'Guests'"></span>
+            <span class="font-semibold text-slate-800" x-text="(reservation?.nbAdulte || 1) + (lang === 'fr' ? ' Adulte(s), ' : ' Adult(s), ') + (reservation?.nbEnfant || 0) + (lang === 'fr' ? ' Enfant(s)' : ' Child(ren)')"></span>
           </div>
           <div>
-            <span class="text-xs text-slate-400 uppercase font-bold block">Kit Bébé</span>
-            <span class="font-semibold text-slate-800 uppercase" x-text="reservation?.kitBebe || 'Non'"></span>
+            <span class="text-xs text-slate-400 uppercase font-bold block" x-text="lang === 'fr' ? 'Kit Bébé' : 'Baby Kit'"></span>
+            <span class="font-semibold text-slate-800 uppercase" x-text="(reservation?.kitBebe && reservation?.kitBebe.toLowerCase() === 'oui') ? (lang === 'fr' ? 'OUI' : 'YES') : (lang === 'fr' ? 'NON' : 'NO')"></span>
           </div>
         </div>
 
@@ -187,21 +207,23 @@
         <div x-show="!isBooking()" class="space-y-4 pt-2">
           <div class="bg-slate-50 p-4 rounded-xl border space-y-2 text-sm mt-2">
             <div class="flex justify-between">
-              <span class="text-slate-600">Total du séjour :</span>
+              <span class="text-slate-600" x-text="lang === 'fr' ? 'Total du séjour :' : 'Total stay:'"></span>
               <span class="font-bold text-slate-900" x-text="formatCurrency(calcTotalSejour(reservation))"></span>
             </div>
             <div class="flex justify-between">
-              <span class="text-slate-600">Acompte réglé :</span>
+              <span class="text-slate-600" x-text="lang === 'fr' ? 'Acompte réglé :' : 'Deposit paid:'"></span>
               <span class="font-bold text-emerald-600" x-text="formatCurrency(reservation?.acompte)"></span>
             </div>
             <div class="flex justify-between">
-              <span class="text-slate-600">Solde réglé :</span>
+              <span class="text-slate-600" x-text="lang === 'fr' ? 'Solde réglé :' : 'Balance paid:'"></span>
               <span class="font-bold text-emerald-600" x-text="formatCurrency(reservation?.soldePaye)"></span>
             </div>
             <div class="flex justify-between items-center pt-2 border-t font-extrabold text-base">
               <span class="text-slate-800">
-                Reste à payer
-                <span class="text-xs font-normal text-slate-500 block">avant le <strong x-text="getDueDate(reservation?.dateDebut)"></strong></span>
+                <span x-text="lang === 'fr' ? 'Reste à payer' : 'Remaining balance'"></span>
+                <span class="text-xs font-normal text-slate-500 block">
+                  <span x-text="lang === 'fr' ? 'avant le ' : 'before '"></span><strong x-text="getDueDate(reservation?.dateDebut)"></strong>
+                </span>
               </span>
               <span :class="calcResteAPayer(reservation) <= 0 ? 'text-emerald-600' : 'text-rose-600'" x-text="formatCurrency(calcResteAPayer(reservation))"></span>
             </div>
@@ -222,7 +244,7 @@
     </div>
   </div>
 
-  <!-- TEMPLATES RENDU PDF HORS ÉCRAN (Invisible à l'utilisateur, lisible par html2pdf) -->
+  <!-- TEMPLATES RENDU PDF HORS ÉCRAN -->
   <div class="pdf-hidden-wrapper">
     <template x-if="reservation && !isBooking()">
       <div id="pdf-render-container">
@@ -268,7 +290,7 @@
                   <tr><td class="py-1 italic text-[10px]" colspan="2">Dont :</td></tr>
                   <tr><td class="py-0.5 pl-4 text-[10px]">- Taxe de séjour (<span x-text="formatCurrency(donnees.taxeSejour)"></span> / nuit / pers)</td><td class="py-0.5 font-bold text-[10px]" x-text="formatCurrency(calcTaxeSejour(reservation))"></td></tr>
                   <tr><td class="py-0.5 pl-4 text-[10px]">- ménage fin de séjour (obligatoire)</td><td class="py-0.5 font-bold text-[10px]" x-text="formatCurrency(calcMenage(reservation))"></td></tr>
-                  <tr class="border-b"><td class="py-0.5 pl-4 text-[10px] pb-1">- option kit bébé</td><td class="py-0.5 font-bold text-[10px] uppercase pb-1" x-text="reservation.kitBebe || 'non'"></td></tr>
+                  <tr class="border-b"><td class="py-0.5 pl-4 text-[10px] pb-1">- option kit bébé</td><td class="py-0.5 font-bold text-[10px]" x-text="reservation.kitBebe || 'non'"></td></tr>
                   <tr class="border-b bg-slate-50"><td class="py-2 font-bold pl-2">Acompte à verser lors de la réservation (<span x-text="donnees.pctAcompte"></span>%) :</td><td class="py-2 font-bold" x-text="formatCurrency(calcAcompte(reservation))"></td></tr>
                   <tr class="border-b bg-slate-50"><td class="py-2 font-bold pl-2">Solde à payer T.T.C avant le <span x-text="getDueDate(reservation.dateDebut)"></span> :</td><td class="py-2 font-bold text-rose-700" x-text="formatCurrency(calcTotalSejour(reservation) - calcAcompte(reservation))"></td></tr>
                 </tbody>
@@ -467,7 +489,7 @@
 
         </div>
 
-        <!-- 2. TEMPLATE RÉCAPITULATIF PAIEMENT (PAGE A4 UNIQUE GARANTIE) -->
+        <!-- 2. TEMPLATE RÉCAPITULATIF PAIEMENT -->
         <div id="pdf-recap-template" class="bg-white text-slate-800 font-sans text-[10px] leading-snug pdf-a4-recap">
           <div>
             <!-- En-tête -->
@@ -571,7 +593,7 @@
               </div>
             </div>
             
-            <!-- LIGNE DU CHÈQUE DE CAUTION (Collée au tableau avec un tout petit espace) -->
+            <!-- LIGNE DU CHÈQUE DE CAUTION -->
             <div class="border-2 border-slate-800 rounded-lg overflow-hidden bg-slate-50 shadow-sm mt-2">
               <div class="p-2 flex items-center justify-between">
                 <span class="font-bold uppercase text-[10px]">Chèque de caution (400,00 € - non encaissé)</span>
