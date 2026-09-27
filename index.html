@@ -157,8 +157,9 @@
             </button>
           </div>
 
-          <button @click="isAuthenticated = false" class="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-2 rounded-lg text-slate-300 transition" x-text="lang === 'fr' ? 'Déconnexion' : 'Logout'">
-          </button>
+         <button @click="isAuthenticated = false" class="bg-transparent hover:bg-rose-600 text-slate-400 hover:text-white border border-slate-700 hover:border-rose-600 font-bold px-3 py-2 rounded-lg text-center text-xs transition">
+  <span x-text="lang === 'fr' ? 'Déconnexion' : 'Logout'"></span>
+</button>
         </div>
       </div>
 
