@@ -72,7 +72,7 @@
     }
   </style>
 </head>
-<body class="bg-slate-900 text-slate-800 font-sans min-h-screen flex flex-col justify-between overflow-x-hidden" x-data="{ ...clientApp(), lang: 'fr' }">
+<body class="bg-slate-900 text-slate-800 font-sans min-h-screen flex flex-col justify-between overflow-x-hidden" x-data="{ ...clientApp(), lang: 'fr', showContactPopup: false }">
 
   <!-- ÉCRAN DE CONNEXION -->
   <div x-show="!isAuthenticated" class="min-h-screen flex flex-col items-center justify-center p-4 relative z-10">
@@ -266,9 +266,9 @@
             <span x-text="lang === 'fr' ? 'Pour toute demande :' : 'For any inquiries:'"></span>
             <strong class="text-slate-800 font-semibold select-all ml-1">lerochersaintpierre1h@gmail.com</strong>
           </span>
-          <a href="mailto:lerochersaintpierre1h@gmail.com" class="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3.5 py-1.5 rounded-lg shadow transition text-xs">
-            ✉️ <span x-text="lang === 'fr' ? 'Envoyer un e-mail' : 'Send an e-mail'"></span>
-          </a>
+         <button @click="showContactPopup = true" type="button" class="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3.5 py-1.5 rounded-lg shadow transition text-xs">
+  ✉️ <span x-text="lang === 'fr' ? 'Envoyer un message' : 'Send a message'"></span>
+</button>
         </div>
 
         <!-- Site web -->
@@ -284,6 +284,39 @@
 
       </div>
 
+    </div>
+  </div>
+
+  <!-- POP-UP CONTACT FORMSPREE -->
+  <div x-show="showContactPopup" @close-contact-popup.window="showContactPopup = false" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900 bg-opacity-70 p-4 transition-opacity">
+    <div @click.away="showContactPopup = false" class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 relative">
+      
+      <!-- Bouton fermer (X) -->
+      <button @click="showContactPopup = false" class="absolute top-4 right-4 text-slate-400 hover:text-slate-700 transition">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+      </button>
+
+      <h2 class="text-xl font-bold text-slate-900 mb-4" x-text="lang === 'fr' ? 'Message' : 'Message'"></h2>
+      
+      <!-- Appel de la fonction d'envoi simplifiée avec la langue -->
+      <form id="contactForm" action="https://formspree.io/f/mdekyawd" method="POST" class="space-y-4" @submit.prevent="submitContactForm($event, lang)">
+        <!-- Sujet personnalisé pour Formspree -->
+        <input type="hidden" name="_subject" value="🔑 nouveau message de l'espace voyageur 🔑">
+        <!-- Infos automatiques du client -->
+        <input type="hidden" name="nom_voyageur" :value="reservation?.nom + ' ' + (reservation?.prenom || '')">
+        <input type="hidden" name="email_voyageur" :value="reservation?.email">
+        
+        <div>
+          <textarea name="message" rows="5" required class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-none" :placeholder="lang === 'fr' ? 'Écrivez votre message ici...' : 'Write your message here...'"></textarea>
+        </div>
+        
+        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-lg shadow transition">
+           <span id="btn-text-send" x-text="lang === 'fr' ? 'Envoyer' : 'Send'"></span>
+        </button>
+      </form>
+      
+      <!-- Message de confirmation masqué -->
+      <div id="contact-status" style="display: none;" class="mt-4 p-3 rounded-lg text-center font-bold text-sm"></div>
     </div>
   </div>
 
@@ -654,7 +687,55 @@
       </div>
     </template>
   </div>
+<script>
+    window.submitContactForm = async function(event, lang) {
+      const form = event.target;
+      const status = document.getElementById("contact-status");
+      const btnSubmit = form.querySelector('button[type="submit"]');
+      const btnText = document.getElementById('btn-text-send');
+      
+      const isFr = lang === 'fr';
+      
+      // Bloquer le bouton et afficher l'état de chargement
+      btnText.innerHTML = isFr ? 'Envoi en cours...' : 'Sending...';
+      btnSubmit.disabled = true;
+      
+      const data = new FormData(form);
+      
+      try {
+        const response = await fetch(form.action, {
+          method: form.method,
+          body: data,
+          headers: { 'Accept': 'application/json' }
+        });
+        
+        if (response.ok) {
+          status.style.display = "block";
+          status.className = "mt-4 p-3 rounded-lg text-center font-bold text-sm bg-emerald-100 text-emerald-800";
+          status.innerHTML = isFr ? 'Message envoyé avec succès !' : 'Message sent successfully!';
+          form.reset();
+          
+          // Fermer automatiquement la pop-up après 3 secondes via Alpine
+          setTimeout(() => { 
+            window.dispatchEvent(new CustomEvent('close-contact-popup'));
+            status.style.display = "none";
+          }, 3000);
 
+        } else {
+          throw new Error('Erreur API');
+        }
+      } catch (error) {
+        status.style.display = "block";
+        status.className = "mt-4 p-3 rounded-lg text-center font-bold text-sm bg-rose-100 text-rose-800";
+        status.innerHTML = isFr ? 'Erreur lors de l\'envoi.' : 'Error sending message.';
+      } finally {
+        // Remettre le bouton à son état normal
+        btnText.innerHTML = isFr ? 'Envoyer' : 'Send';
+        btnSubmit.disabled = false;
+      }
+    };
+  </script>
+  
   <script src="app.js"></script>
 </body>
 </html>
