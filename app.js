@@ -42,21 +42,51 @@ function clientApp() {
         }
       }).catch(() => {});
 
-      // Récupération de la réservation
+      // Récupération des réservations
       db.collection("locations").doc("rocher1H").collection("reservations")
         .get()
         .then((snapshot) => {
-          let found = null;
+          let userReservations = [];
+          
+          // 1. Stocker TOUTES les réservations associées à l'email
           snapshot.forEach((doc) => {
             const data = doc.data();
             if (data.email && data.email.trim().toLowerCase() === emailClean) {
-              found = data;
+              userReservations.push(data);
             }
           });
 
-          if (found) {
-            this.reservation = found;
-            this.isAuthenticated = true;
+          if (userReservations.length > 0) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            // 2. Filtrer les réservations pour exclure celles dont la date de fin + 30 jours est dépassée
+            let validReservations = userReservations.filter(res => {
+              if (!res.dateFin) return false;
+              const [y, m, d] = res.dateFin.split('-').map(Number);
+              const dateFin = new Date(y, m - 1, d); // Date de départ du client (check-out)
+              
+              const expirationDate = new Date(dateFin);
+              expirationDate.setDate(expirationDate.getDate() + 30);
+              
+              return today <= expirationDate; // Valide si aujourd'hui est avant ou égal à l'expiration
+            });
+
+            if (validReservations.length > 0) {
+              // 3. Trier pour obtenir le voyage le plus proche dans le temps
+              validReservations.sort((a, b) => {
+                 const [yA, mA, dA] = a.dateDebut.split('-').map(Number);
+                 const [yB, mB, dB] = b.dateDebut.split('-').map(Number);
+                 return new Date(yA, mA - 1, dA) - new Date(yB, mB - 1, dB);
+              });
+
+              // On affecte la réservation valide la plus proche
+              this.reservation = validReservations[0];
+              this.isAuthenticated = true;
+            } else {
+              // Si le client a des réservations mais qu'elles datent de plus de 30 jours
+              this.loginError = "Votre accès a expiré.";
+            }
           } else {
             this.loginError = "Aucune réservation trouvée avec cet e-mail.";
           }
