@@ -113,7 +113,7 @@
           </div>
         </div>
 
-        <p x-show="loginError" class="text-rose-500 text-xs font-bold text-center" x-text="lang === 'fr' ? loginError : (loginError === 'Mot de passe incorrect.' ? 'Incorrect password.' : (loginError === 'Aucune réservation trouvée avec cet e-mail.' ? 'No booking found with this e-mail.' : 'Server connection error.'))"></p>
+        <p x-show="loginError" class="text-rose-500 text-xs font-bold text-center" x-text="lang === 'fr' ? loginError : (loginError === 'Mot de passe incorrect.' ? 'Incorrect password.' : (loginError === 'Aucune réservation trouvée avec cet e-mail.' ? 'No booking found with this e-mail.' : (loginError === 'Votre accès a expiré.' ? 'Your access has expired.' : 'Server connection error.')))"></p>
 
         <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-lg shadow transition" x-text="lang === 'fr' ? 'Accéder à mon espace' : 'Access my space'">
         </button>
