@@ -21,7 +21,7 @@ function clientApp() {
     reservation: null,
 
     donnees: {
-      taxeSejour: 1.65,
+      taxeSejour: 1.87,
       prixMenage: 75,
       pctAcompte: 30
     },
@@ -118,7 +118,7 @@ function clientApp() {
 
     calcTaxeSejour(res) {
       if (!res || ['perso', 'black', 'booking'].includes(res.codeTarif || 'public')) return 0;
-      return this.calcNights(res.dateDebut, res.dateFin) * (Number(res.nbAdulte) || 0) * (Number(this.donnees.taxeSejour) || 1.65);
+      return this.calcNights(res.dateDebut, res.dateFin) * (Number(res.nbAdulte) || 0) * (Number(this.donnees.taxeSejour) || 1.87);
     },
 
     calcTotalSejour(res) {
